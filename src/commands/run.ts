@@ -272,12 +272,21 @@ async function deploy(
   p.log.info("Copying local files to snapshot...");
   copyLocalFiles(snapshotPath);
 
-  // Build all tasks
+  // Build all tasks first (before stopping anything)
   p.log.info("Building tasks...");
   const buildResult = await buildTasks(snapshotPath, nodeConfig.tasks);
   if (!buildResult.success) {
     p.log.error(`Build failed for task: ${buildResult.failedTask}`);
     return false;
+  }
+
+  // Build succeeded - now stop old processes to free up ports
+  const oldProcesses = state.processes;
+  const oldSnapshot = state.currentSnapshot;
+
+  if (oldProcesses.size > 0) {
+    p.log.info("Stopping old processes to free up ports...");
+    await stopAllProcesses(state);
   }
 
   // Start all tasks
@@ -298,14 +307,14 @@ async function deploy(
     newProcesses.set(task, taskProcess);
   }
 
+  // Set new processes for health check
+  state.processes = newProcesses;
+  state.currentSnapshot = snapshotPath;
+
   // Wait for startup timeout to verify health
   p.log.info(
     `Waiting ${autoDeployConfig.startupTimeout}s for processes to stabilize...`
   );
-
-  // Temporarily set processes for health check
-  const oldProcesses = state.processes;
-  state.processes = newProcesses;
 
   const healthy = await waitForHealthy(
     state,
@@ -315,27 +324,34 @@ async function deploy(
   if (!healthy || crashedDuringStartup) {
     p.log.error("New deployment failed health check, rolling back...");
 
-    // Stop new processes
+    // Stop failed new processes
     await stopAllProcesses(state);
 
-    // Restore old processes
-    state.processes = oldProcesses;
+    // Rollback: restart old deployment if we had one
+    if (oldSnapshot) {
+      p.log.warn("Restarting previous deployment...");
+      state.currentSnapshot = oldSnapshot;
+
+      // Restart old processes
+      const restoredProcesses = new Map<string, TaskProcess>();
+      for (const task of nodeConfig.tasks) {
+        const taskProcess = startTask(
+          task,
+          oldSnapshot,
+          autoDeployConfig,
+          state,
+          () => {} // Don't track crashes during rollback
+        );
+        restoredProcesses.set(task, taskProcess);
+      }
+      state.processes = restoredProcesses;
+    }
+
     return false;
   }
 
-  // Success! Stop old processes if any
-  if (oldProcesses.size > 0) {
-    p.log.info("Stopping old deployment...");
-    const tempState: DeploymentState = {
-      ...state,
-      processes: oldProcesses,
-    };
-    await stopAllProcesses(tempState);
-  }
-
   // Update state
-  state.previousSnapshot = state.currentSnapshot;
-  state.currentSnapshot = snapshotPath;
+  state.previousSnapshot = oldSnapshot;
 
   p.log.success("Deployment successful!");
   return true;
