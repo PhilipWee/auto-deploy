@@ -61,3 +61,20 @@ export function getSnapshotPath(
   const ts = timestamp || Date.now();
   return path.join(baseDir, "repo-snapshots", String(ts), repoName);
 }
+
+/**
+ * Checkout a specific branch in a git repository
+ */
+export async function checkoutBranch(
+  repoDir: string,
+  branch: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await execAsync(`git -C "${repoDir}" checkout "${branch}"`);
+    return { success: true };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown error occurred";
+    return { success: false, error: message };
+  }
+}

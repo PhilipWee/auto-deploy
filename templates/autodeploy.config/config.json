@@ -1,0 +1,12 @@
+{
+  "branch": "main",
+  "startupTimeout": 30,
+  "webhook": {
+    "secret": "your-webhook-secret-here",
+    "port": 9000
+  },
+  "restart": {
+    "maxBackoff": 60,
+    "initialDelay": 1
+  }
+}

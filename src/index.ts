@@ -8,11 +8,8 @@ import {
   getRepoNameFromUrl,
   getSnapshotPath,
 } from "./helpers/git.js";
-
-interface NodeConfig {
-  repo: string;
-  tasks: string[];
-}
+import { runCommand } from "./commands/run.js";
+import { NodeConfig } from "./types.js";
 
 const program = new Command();
 
@@ -182,12 +179,6 @@ program.addCommand(initCommand);
 program
   .command("run")
   .description("Run the deployment workflow")
-  .action(async () => {
-    p.intro("auto-deploy run");
-
-    p.log.info("Run command not yet implemented");
-
-    p.outro("Done!");
-  });
+  .action(runCommand);
 
 program.parse();
