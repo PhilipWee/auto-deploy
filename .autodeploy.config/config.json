@@ -3,7 +3,7 @@
   "startupTimeout": 30,
   "pollInterval": 60,
   "restart": {
-    "maxBackoff": 60,
+    "maxBackoff": 10,
     "initialDelay": 1
   }
 }

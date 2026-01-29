@@ -12,40 +12,41 @@ export interface ProcessOptions {
 
 /**
  * Run a shell script and return the process
+ * Uses detached: true to create a process group so we can kill all children
  */
 export function runScript(
   scriptPath: string,
   options: ProcessOptions
 ): ChildProcess {
-  const process = spawn("bash", [scriptPath], {
+  const childProcess = spawn("bash", [scriptPath], {
     cwd: options.cwd,
     stdio: ["ignore", "pipe", "pipe"],
-    detached: false,
+    detached: true, // Create new process group for proper cleanup
   });
 
-  if (process.stdout) {
-    process.stdout.on("data", (data) => {
+  if (childProcess.stdout) {
+    childProcess.stdout.on("data", (data) => {
       const output = data.toString();
       options.onStdout?.(output);
     });
   }
 
-  if (process.stderr) {
-    process.stderr.on("data", (data) => {
+  if (childProcess.stderr) {
+    childProcess.stderr.on("data", (data) => {
       const output = data.toString();
       options.onStderr?.(output);
     });
   }
 
-  process.on("error", (error) => {
+  childProcess.on("error", (error) => {
     options.onError?.(error);
   });
 
-  process.on("exit", (code) => {
+  childProcess.on("exit", (code) => {
     options.onExit?.(code);
   });
 
-  return process;
+  return childProcess;
 }
 
 /**
@@ -106,28 +107,42 @@ export function calculateBackoff(
 }
 
 /**
- * Kill a process gracefully
+ * Kill a process and all its children (process group)
  */
 export async function killProcess(
-  process: ChildProcess,
+  childProcess: ChildProcess,
   timeout = 5000
 ): Promise<void> {
   return new Promise((resolve) => {
-    if (!process || process.killed) {
+    if (!childProcess || childProcess.killed || !childProcess.pid) {
       resolve();
       return;
     }
 
+    const pid = childProcess.pid;
+
     const forceKillTimer = setTimeout(() => {
-      process.kill("SIGKILL");
+      try {
+        // Kill entire process group with SIGKILL
+        process.kill(-pid, "SIGKILL");
+      } catch {
+        // Process might already be dead
+      }
       resolve();
     }, timeout);
 
-    process.once("exit", () => {
+    childProcess.once("exit", () => {
       clearTimeout(forceKillTimer);
       resolve();
     });
 
-    process.kill("SIGTERM");
+    try {
+      // Kill entire process group with SIGTERM (negative pid = process group)
+      process.kill(-pid, "SIGTERM");
+    } catch {
+      // Process might already be dead
+      clearTimeout(forceKillTimer);
+      resolve();
+    }
   });
 }

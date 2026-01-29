@@ -307,9 +307,8 @@ async function deploy(
     newProcesses.set(task, taskProcess);
   }
 
-  // Set new processes for health check
+  // Set new processes for health check (but don't update currentSnapshot yet)
   state.processes = newProcesses;
-  state.currentSnapshot = snapshotPath;
 
   // Wait for startup timeout to verify health
   p.log.info(
@@ -345,13 +344,18 @@ async function deploy(
         restoredProcesses.set(task, taskProcess);
       }
       state.processes = restoredProcesses;
+    } else {
+      // No previous deployment to rollback to
+      p.log.error("No previous deployment to rollback to");
+      state.currentSnapshot = null;
     }
 
     return false;
   }
 
-  // Update state
+  // Success! Update state
   state.previousSnapshot = oldSnapshot;
+  state.currentSnapshot = snapshotPath;
 
   p.log.success("Deployment successful!");
   return true;
