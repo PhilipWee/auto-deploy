@@ -2,6 +2,7 @@ import { Command } from "commander";
 import * as p from "@clack/prompts";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { copyDir, getTemplatesDir } from "./helpers/fs.js";
 
 const program = new Command();
 
@@ -21,30 +22,28 @@ initCommand
   .action(async () => {
     p.intro("auto-deploy init node");
 
-    const localDir = ".autodeploy.local";
-    const filesDir = path.join(localDir, "files");
+    const templatesDir = getTemplatesDir();
+    const templatePath = path.join(templatesDir, "autodeploy.local");
+    const destPath = ".autodeploy.local";
 
-    // Create directories
-    if (!fs.existsSync(filesDir)) {
-      fs.mkdirSync(filesDir, { recursive: true });
-      p.log.success(`Created ${filesDir}/`);
-    } else {
-      p.log.info(`${filesDir}/ already exists`);
+    if (fs.existsSync(destPath)) {
+      p.log.info(`${destPath}/ already exists, merging files...`);
     }
 
-    // Create empty config.json
-    const configPath = path.join(localDir, "config.json");
-    if (!fs.existsSync(configPath)) {
-      fs.writeFileSync(configPath, "{}\n");
-      p.log.success(`Created ${configPath}`);
-    } else {
-      p.log.info(`${configPath} already exists`);
+    // Copy template to destination
+    copyDir(templatePath, destPath, { overwrite: false });
+    p.log.success(`Created ${destPath}/`);
+
+    // Ensure files directory exists (in case .gitkeep was skipped)
+    const filesDir = path.join(destPath, "files");
+    if (!fs.existsSync(filesDir)) {
+      fs.mkdirSync(filesDir, { recursive: true });
     }
 
     // Update .gitignore to ignore .autodeploy.local/
     const gitignorePath = ".gitignore";
     const gitignoreEntry = ".autodeploy.local/";
-    
+
     let gitignoreContent = "";
     if (fs.existsSync(gitignorePath)) {
       gitignoreContent = fs.readFileSync(gitignorePath, "utf-8");
@@ -69,48 +68,17 @@ initCommand
   .action(async () => {
     p.intro("auto-deploy init repo");
 
-    const configDir = ".autodeploy.config";
-    const workflowDir = path.join(configDir, "configs", "workflow-runner");
+    const templatesDir = getTemplatesDir();
+    const templatePath = path.join(templatesDir, "autodeploy.config");
+    const destPath = ".autodeploy.config";
 
-    // Create directories
-    if (!fs.existsSync(workflowDir)) {
-      fs.mkdirSync(workflowDir, { recursive: true });
-      p.log.success(`Created ${workflowDir}/`);
-    } else {
-      p.log.info(`${workflowDir}/ already exists`);
+    if (fs.existsSync(destPath)) {
+      p.log.info(`${destPath}/ already exists, merging files...`);
     }
 
-    // Create sample build.sh
-    const buildPath = path.join(workflowDir, "build.sh");
-    if (!fs.existsSync(buildPath)) {
-      fs.writeFileSync(
-        buildPath,
-        `#!/bin/bash
-# Build script - customize for your project
-echo "Building..."
-`
-      );
-      fs.chmodSync(buildPath, "755");
-      p.log.success(`Created ${buildPath}`);
-    } else {
-      p.log.info(`${buildPath} already exists`);
-    }
-
-    // Create sample run.sh
-    const runPath = path.join(workflowDir, "run.sh");
-    if (!fs.existsSync(runPath)) {
-      fs.writeFileSync(
-        runPath,
-        `#!/bin/bash
-# Run script - customize for your project
-echo "Running..."
-`
-      );
-      fs.chmodSync(runPath, "755");
-      p.log.success(`Created ${runPath}`);
-    } else {
-      p.log.info(`${runPath} already exists`);
-    }
+    // Copy template to destination
+    copyDir(templatePath, destPath, { overwrite: false });
+    p.log.success(`Created ${destPath}/`);
 
     p.outro("Repo initialized!");
   });
