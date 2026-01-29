@@ -1,7 +1,7 @@
 {
   "branch": "main",
-  "startupTimeout": 30,
-  "pollInterval": 60,
+  "startupTimeout": 1,
+  "pollInterval": 1,
   "restart": {
     "maxBackoff": 10,
     "initialDelay": 1
