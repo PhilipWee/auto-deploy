@@ -6,10 +6,7 @@ export interface NodeConfig {
 export interface AutoDeployConfig {
   branch: string;
   startupTimeout: number;
-  webhook: {
-    secret: string;
-    port: number;
-  };
+  pollInterval: number; // in seconds
   restart: {
     maxBackoff: number;
     initialDelay: number;

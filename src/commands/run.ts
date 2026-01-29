@@ -1,7 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as p from "@clack/prompts";
-import { ChildProcess } from "node:child_process";
 import {
   NodeConfig,
   AutoDeployConfig,
@@ -16,7 +15,7 @@ import {
   calculateBackoff,
   killProcess,
 } from "../helpers/process.js";
-import { startWebhookServer } from "../helpers/webhook.js";
+import { startPolling } from "../helpers/github.js";
 
 const LOCAL_DIR = ".autodeploy.local";
 
@@ -449,19 +448,19 @@ export async function runCommand(): Promise<void> {
     process.exit(1);
   }
 
-  // Load config for webhook
+  // Load config for polling
   const autoDeployConfig = loadAutoDeployConfig(state.currentSnapshot);
   if (!autoDeployConfig) {
     p.log.error("Failed to load autodeploy config");
     process.exit(1);
   }
 
-  // Start webhook server
-  const webhookServer = startWebhookServer({
-    port: autoDeployConfig.webhook.port,
-    secret: autoDeployConfig.webhook.secret,
+  // Start polling for new commits
+  const stopPolling = startPolling({
+    repoUrl: nodeConfig.repo,
     branch: autoDeployConfig.branch,
-    onPush: () => {
+    intervalMs: autoDeployConfig.pollInterval * 1000,
+    onNewCommit: () => {
       pullAndDeploy(nodeConfig, state);
     },
   });
@@ -470,7 +469,7 @@ export async function runCommand(): Promise<void> {
   const shutdown = async () => {
     p.log.info("\nShutting down...");
 
-    webhookServer.close();
+    stopPolling();
     await stopAllProcesses(state);
 
     p.outro("Goodbye!");
