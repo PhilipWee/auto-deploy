@@ -101,8 +101,8 @@ function startTask(
   state: DeploymentState,
   onCrash: () => void
 ): TaskProcess {
-  const taskDir = path.join(snapshotPath, ".autodeploy.config", taskName);
-  const runScriptPath = path.join(taskDir, "run.sh");
+  // Relative path for execution (relative to snapshotPath which is cwd)
+  const runScriptPath = path.join(".autodeploy.config", taskName, "run.sh");
 
   const taskProcess: TaskProcess = {
     taskName,
@@ -172,16 +172,23 @@ async function buildTasks(
   tasks: string[]
 ): Promise<{ success: boolean; failedTask?: string }> {
   for (const task of tasks) {
-    const taskDir = path.join(snapshotPath, ".autodeploy.config", task);
-    const buildScriptPath = path.join(taskDir, "build.sh");
+    // Full path for existence check
+    const fullBuildScriptPath = path.join(
+      snapshotPath,
+      ".autodeploy.config",
+      task,
+      "build.sh"
+    );
+    // Relative path for execution (relative to snapshotPath which is cwd)
+    const relativeBuildScriptPath = path.join(".autodeploy.config", task, "build.sh");
 
-    if (!fs.existsSync(buildScriptPath)) {
+    if (!fs.existsSync(fullBuildScriptPath)) {
       p.log.warn(`[${task}] No build.sh found, skipping build`);
       continue;
     }
 
     p.log.info(`[${task}] Running build...`);
-    const result = await runBuildScript(buildScriptPath, snapshotPath);
+    const result = await runBuildScript(relativeBuildScriptPath, snapshotPath);
 
     if (!result.success) {
       p.log.error(`[${task}] Build failed: ${result.error}`);
