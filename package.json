@@ -10,7 +10,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --banner:js=\"#!/usr/bin/env node\"",
+    "build": "node esbuild.config.js",
     "dev": "npm run build && node dist/index.js",
     "prepublishOnly": "npm run build"
   },
@@ -20,9 +20,11 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@clack/prompts": "^1.0.0"
+    "@clack/prompts": "^1.0.0",
+    "commander": "^13.0.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "esbuild": "^0.27.2",
     "typescript": "^5.9.3"
   }
