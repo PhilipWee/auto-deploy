@@ -47,7 +47,10 @@ export const cliArgs: CliCommand = {
           command: "node",
           label: "Local Node Init",
           args: z.object({
-            repoUrl: z.string(),
+            repoUrl: z.string().meta({
+              question: "Enter the git repository URL:",
+              placeholder: "https://github.com/user/repo.git",
+            }),
           }),
         },
         {
@@ -101,6 +104,71 @@ async function handleBranch(
   });
 }
 
+interface TextMeta {
+  question?: string;
+  placeholder?: string;
+}
+
+async function handleText(
+  key: string,
+  zodType: z.ZodType
+): Promise<string | undefined> {
+  const meta = (zodType.meta() ?? {}) as TextMeta;
+
+  const value = await text({
+    message: meta.question ?? `Enter value for ${key}:`,
+    placeholder: meta.placeholder ?? key,
+  });
+
+  if (isCancel(value)) {
+    return undefined;
+  }
+
+  return value;
+}
+
+function handleVoid(
+  curCommand: CliCommandLeaf,
+  curContext: CliResult
+): CliResult {
+  return {
+    type: [...curContext.type, curCommand.command],
+    args: undefined,
+  };
+}
+
+async function handleObj(
+  curCommand: CliCommandLeaf,
+  curContext: CliResult,
+  zodObj: z.ZodObject<any>
+): Promise<CliResult | undefined> {
+  const shape = zodObj.def.shape as Record<string, z.ZodType>;
+  const args: Record<string, string> = {};
+
+  for (const [key, fieldZodType] of Object.entries(shape)) {
+    const parsedFieldType = parseZodType(fieldZodType);
+
+    if (parsedFieldType.type !== "string") {
+      throw new Error(
+        `Internal Error: Unsupported field type '${parsedFieldType.type}' for key '${key}'. Only 'string' is supported.`
+      );
+    }
+
+    const value = await handleText(key, fieldZodType);
+
+    if (value === undefined) {
+      return undefined;
+    }
+
+    args[key] = value;
+  }
+
+  return {
+    type: [...curContext.type, curCommand.command],
+    args,
+  };
+}
+
 async function handleLeaf(
   curCommand: CliCommandLeaf,
   curContext: CliResult
@@ -108,44 +176,17 @@ async function handleLeaf(
   const parsedType = parseZodType(curCommand.args);
 
   if (parsedType.type === "void") {
-    // On a leaf, append final command to the type array and return
-    return {
-      type: [...curContext.type, curCommand.command],
-      args: undefined,
-    };
+    return handleVoid(curCommand, curContext);
   } else if (parsedType.type === "object") {
-    const schema = parsedType.schema;
-    if (!schema) {
-      throw new Error("Internal Error: Object schema is undefined");
-    }
-
-    const args: Record<string, string> = {};
-
-    for (const [key, fieldType] of Object.entries(schema)) {
-      if (fieldType.type !== "string") {
-        throw new Error(
-          `Internal Error: Unsupported field type '${fieldType.type}' for key '${key}'. Only 'string' is supported.`
-        );
-      }
-
-      const value = await text({
-        message: `Enter value for ${key}:`,
-        placeholder: key,
-      });
-
-      if (isCancel(value)) {
-        return undefined;
-      }
-
-      args[key] = value;
-    }
-
-    return {
-      type: [...curContext.type, curCommand.command],
-      args,
-    };
+    return handleObj(
+      curCommand,
+      curContext,
+      curCommand.args as z.ZodObject<any>
+    );
   } else {
-    throw new Error("Internal Error: Bad leaf schema");
+    throw new Error(
+      `Internal Error: Unsupported leaf schema type '${parsedType.type}'`
+    );
   }
 }
 
