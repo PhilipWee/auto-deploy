@@ -1,6 +1,6 @@
-import { intro, select, isCancel, outro } from "@clack/prompts";
+import { intro, select, isCancel, outro, text } from "@clack/prompts";
 import z from "zod";
-import { parseZodObj, parseZodType } from "./helpers/zod-parser";
+import { parseZodType } from "./helpers/zod-parser";
 
 export interface CliResult {
   type: string[];
@@ -114,8 +114,36 @@ async function handleLeaf(
       args: undefined,
     };
   } else if (parsedType.type === "object") {
+    const schema = parsedType.schema;
+    if (!schema) {
+      throw new Error("Internal Error: Object schema is undefined");
+    }
 
-    
+    const args: Record<string, string> = {};
+
+    for (const [key, fieldType] of Object.entries(schema)) {
+      if (fieldType.type !== "string") {
+        throw new Error(
+          `Internal Error: Unsupported field type '${fieldType.type}' for key '${key}'. Only 'string' is supported.`
+        );
+      }
+
+      const value = await text({
+        message: `Enter value for ${key}:`,
+        placeholder: key,
+      });
+
+      if (isCancel(value)) {
+        return undefined;
+      }
+
+      args[key] = value;
+    }
+
+    return {
+      type: [...curContext.type, curCommand.command],
+      args,
+    };
   } else {
     throw new Error("Internal Error: Bad leaf schema");
   }
