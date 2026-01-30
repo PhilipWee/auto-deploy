@@ -1,6 +1,10 @@
-import { intro } from "@clack/prompts";
+import { intro, select, isCancel, outro } from "@clack/prompts";
 import z from "zod";
 
+export interface CliResult {
+  type: string[];
+  args: any;
+}
 interface CliCommandBase {
   label: string;
   command: string;
@@ -27,7 +31,7 @@ export type CliCommand = CliCommandLeaf | CliCommandBranch;
 
 export const cliArgs: CliCommand = {
   type: "branch",
-  command: "",
+  command: "root",
   question: "What command would you like to run?",
   label: "root",
   branches: [
@@ -35,7 +39,7 @@ export const cliArgs: CliCommand = {
       type: "branch",
       command: "init",
       question: "What kind of initialization would you like to perform?",
-      label: "init",
+      label: "Init Node / Repo",
       branches: [
         {
           type: "leaf",
@@ -60,11 +64,57 @@ export const cliArgs: CliCommand = {
   ],
 };
 
-function promptForContext(
+async function promptForContext(
   curCommand: CliCommand,
-  curContext: { type: string; args: any }
-) {}
+  curContext: CliResult = {
+    type: [],
+    args: undefined,
+  }
+): Promise<CliResult | undefined> {
+  if (curCommand.type === "leaf") {
+    // On a leaf, append final command to the type array and return
+    return {
+      type: [...curContext.type, curCommand.command],
+      args: undefined,
+    };
+  } else if (curCommand.type === "branch") {
+    // Use select to show the branches
+    const options = curCommand.branches.map((branch) => ({
+      value: branch.command,
+      label: branch.label,
+    }));
 
-export function runCli() {
+    const choice = await select({
+      message: curCommand.question,
+      options,
+    });
+
+    if (isCancel(choice)) {
+      return undefined;
+    }
+
+    const chosenBranch = curCommand.branches.find(
+      (branch) => branch.command === choice
+    );
+
+    if (!chosenBranch) {
+      throw new Error("Invalid selection");
+    }
+
+    const newType = [...curContext.type, curCommand.command];
+
+    return promptForContext(chosenBranch, { type: newType, args: undefined });
+  }
+}
+
+export async function runCli(): Promise<CliResult | undefined> {
   intro("self-deploy");
+
+  const res = await promptForContext(cliArgs);
+
+  if (!res) {
+    outro('Operation cancelled')
+  }
+
+  return res;
 }

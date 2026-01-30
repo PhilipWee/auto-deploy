@@ -1,17 +1,17 @@
-import { Command } from "commander";
-import * as p from "@clack/prompts";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { copyDir, getTemplatesDir } from "./helpers/fs.js";
-import {
-  cloneRepo,
-  getRepoNameFromUrl,
-  getSnapshotPath,
-} from "./helpers/git.js";
-import { runCommand } from "./commands/run.js";
-import { NodeConfig } from "./types.js";
+import { runCli } from "./cli.js";
+import { outro } from "@clack/prompts";
+import { runCommand } from "./commands/run-command.js";
 
-import './cli-args.js'
+const main = async () => {
+  const cliRes = await runCli();
+  if (!cliRes) {
+    return;
+  }
+  const res = await runCommand(cliRes);
+  return res;
+};
+
+main();
 
 // const program = new Command();
 
