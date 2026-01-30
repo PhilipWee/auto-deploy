@@ -11,174 +11,176 @@ import {
 import { runCommand } from "./commands/run.js";
 import { NodeConfig } from "./types.js";
 
-const program = new Command();
+import './cli-args.js'
 
-program
-  .name("auto-deploy")
-  .description("A CLI tool for auto deployment")
-  .version("0.1.0");
+// const program = new Command();
 
-// init command with subcommands
-const initCommand = new Command("init").description(
-  "Initialize autodeploy configuration"
-);
+// program
+//   .name("auto-deploy")
+//   .description("A CLI tool for auto deployment")
+//   .version("0.1.0");
 
-initCommand
-  .command("node")
-  .description("Initialize local node configuration (.autodeploy.local/)")
-  .action(async () => {
-    p.intro("auto-deploy init node");
+// // init command with subcommands
+// const initCommand = new Command("init").description(
+//   "Initialize autodeploy configuration"
+// );
 
-    const localDir = ".autodeploy.local";
+// initCommand
+//   .command("node")
+//   .description("Initialize local node configuration (.autodeploy.local/)")
+//   .action(async () => {
+//     p.intro("auto-deploy init node");
 
-    // Step 1: Ask for repo URL
-    const repoUrl = await p.text({
-      message: "Enter the git repository URL:",
-      placeholder: "https://github.com/user/repo.git",
-      validate: (value) => {
-        if (!value) return "Repository URL is required";
-        if (!value.includes("github.com") && !value.includes("gitlab.com") && !value.includes("bitbucket.org")) {
-          // Allow other git URLs too, just a soft warning
-        }
-        return undefined;
-      },
-    });
+//     const localDir = ".autodeploy.local";
 
-    if (p.isCancel(repoUrl)) {
-      p.cancel("Operation cancelled");
-      process.exit(0);
-    }
+//     // Step 1: Ask for repo URL
+//     const repoUrl = await p.text({
+//       message: "Enter the git repository URL:",
+//       placeholder: "https://github.com/user/repo.git",
+//       validate: (value) => {
+//         if (!value) return "Repository URL is required";
+//         if (!value.includes("github.com") && !value.includes("gitlab.com") && !value.includes("bitbucket.org")) {
+//           // Allow other git URLs too, just a soft warning
+//         }
+//         return undefined;
+//       },
+//     });
 
-    // Step 2: Create base directory structure
-    const templatesDir = getTemplatesDir();
-    const templatePath = path.join(templatesDir, "autodeploy.local");
+//     if (p.isCancel(repoUrl)) {
+//       p.cancel("Operation cancelled");
+//       process.exit(0);
+//     }
 
-    if (!fs.existsSync(localDir)) {
-      copyDir(templatePath, localDir, { overwrite: false });
-    }
+//     // Step 2: Create base directory structure
+//     const templatesDir = getTemplatesDir();
+//     const templatePath = path.join(templatesDir, "autodeploy.local");
 
-    // Ensure files directory exists
-    const filesDir = path.join(localDir, "files");
-    if (!fs.existsSync(filesDir)) {
-      fs.mkdirSync(filesDir, { recursive: true });
-    }
+//     if (!fs.existsSync(localDir)) {
+//       copyDir(templatePath, localDir, { overwrite: false });
+//     }
 
-    p.log.success(`Created ${localDir}/`);
+//     // Ensure files directory exists
+//     const filesDir = path.join(localDir, "files");
+//     if (!fs.existsSync(filesDir)) {
+//       fs.mkdirSync(filesDir, { recursive: true });
+//     }
 
-    // Step 3: Clone repo into repo-snapshots/<timestamp>/<repo-name>
-    const repoName = getRepoNameFromUrl(repoUrl);
-    const timestamp = Date.now();
-    const snapshotPath = getSnapshotPath(localDir, repoName, timestamp);
+//     p.log.success(`Created ${localDir}/`);
 
-    const spinner = p.spinner();
-    spinner.start(`Cloning ${repoName}...`);
+//     // Step 3: Clone repo into repo-snapshots/<timestamp>/<repo-name>
+//     const repoName = getRepoNameFromUrl(repoUrl);
+//     const timestamp = Date.now();
+//     const snapshotPath = getSnapshotPath(localDir, repoName, timestamp);
 
-    const cloneResult = await cloneRepo(repoUrl, snapshotPath);
+//     const spinner = p.spinner();
+//     spinner.start(`Cloning ${repoName}...`);
 
-    if (!cloneResult.success) {
-      spinner.stop(`Failed to clone repository`);
-      p.log.error(cloneResult.error || "Unknown error");
-      process.exit(1);
-    }
+//     const cloneResult = await cloneRepo(repoUrl, snapshotPath);
 
-    spinner.stop(`Cloned ${repoName} to ${snapshotPath}`);
+//     if (!cloneResult.success) {
+//       spinner.stop(`Failed to clone repository`);
+//       p.log.error(cloneResult.error || "Unknown error");
+//       process.exit(1);
+//     }
 
-    // Step 4: Look for .autodeploy.config in the cloned repo
-    const autoDeployConfigPath = path.join(snapshotPath, ".autodeploy.config");
+//     spinner.stop(`Cloned ${repoName} to ${snapshotPath}`);
 
-    if (!fs.existsSync(autoDeployConfigPath)) {
-      p.log.warn(
-        `No .autodeploy.config found in the repository. Please run 'auto-deploy init repo' in the target repo first.`
-      );
-      process.exit(1);
-    }
+//     // Step 4: Look for .autodeploy.config in the cloned repo
+//     const autoDeployConfigPath = path.join(snapshotPath, ".autodeploy.config");
 
-    // Step 5: Read available task types (directories in .autodeploy.config)
-    const entries = fs.readdirSync(autoDeployConfigPath, {
-      withFileTypes: true,
-    });
-    const taskTypes = entries
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name);
+//     if (!fs.existsSync(autoDeployConfigPath)) {
+//       p.log.warn(
+//         `No .autodeploy.config found in the repository. Please run 'auto-deploy init repo' in the target repo first.`
+//       );
+//       process.exit(1);
+//     }
 
-    if (taskTypes.length === 0) {
-      p.log.warn(`No task types found in .autodeploy.config`);
-      process.exit(1);
-    }
+//     // Step 5: Read available task types (directories in .autodeploy.config)
+//     const entries = fs.readdirSync(autoDeployConfigPath, {
+//       withFileTypes: true,
+//     });
+//     const taskTypes = entries
+//       .filter((entry) => entry.isDirectory())
+//       .map((entry) => entry.name);
 
-    // Step 6: Ask user which task types they want (multiselect)
-    const selectedTasks = await p.multiselect({
-      message: "Select task types to enable:",
-      options: taskTypes.map((task) => ({
-        value: task,
-        label: task,
-      })),
-      required: true,
-    });
+//     if (taskTypes.length === 0) {
+//       p.log.warn(`No task types found in .autodeploy.config`);
+//       process.exit(1);
+//     }
 
-    if (p.isCancel(selectedTasks)) {
-      p.cancel("Operation cancelled");
-      process.exit(0);
-    }
+//     // Step 6: Ask user which task types they want (multiselect)
+//     const selectedTasks = await p.multiselect({
+//       message: "Select task types to enable:",
+//       options: taskTypes.map((task) => ({
+//         value: task,
+//         label: task,
+//       })),
+//       required: true,
+//     });
 
-    // Step 7: Generate config.json
-    const config: NodeConfig = {
-      repo: repoUrl,
-      tasks: selectedTasks as string[],
-    };
+//     if (p.isCancel(selectedTasks)) {
+//       p.cancel("Operation cancelled");
+//       process.exit(0);
+//     }
 
-    const configPath = path.join(localDir, "config.json");
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
-    p.log.success(`Created ${configPath}`);
+//     // Step 7: Generate config.json
+//     const config: NodeConfig = {
+//       repo: repoUrl,
+//       tasks: selectedTasks as string[],
+//     };
 
-    // Update .gitignore to ignore .autodeploy.local/
-    const gitignorePath = ".gitignore";
-    const gitignoreEntry = ".autodeploy.local/";
+//     const configPath = path.join(localDir, "config.json");
+//     fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+//     p.log.success(`Created ${configPath}`);
 
-    let gitignoreContent = "";
-    if (fs.existsSync(gitignorePath)) {
-      gitignoreContent = fs.readFileSync(gitignorePath, "utf-8");
-    }
+//     // Update .gitignore to ignore .autodeploy.local/
+//     const gitignorePath = ".gitignore";
+//     const gitignoreEntry = ".autodeploy.local/";
 
-    if (!gitignoreContent.includes(gitignoreEntry)) {
-      const newContent = gitignoreContent
-        ? `${gitignoreContent.trimEnd()}\n${gitignoreEntry}\n`
-        : `${gitignoreEntry}\n`;
-      fs.writeFileSync(gitignorePath, newContent);
-      p.log.success(`Added ${gitignoreEntry} to .gitignore`);
-    }
+//     let gitignoreContent = "";
+//     if (fs.existsSync(gitignorePath)) {
+//       gitignoreContent = fs.readFileSync(gitignorePath, "utf-8");
+//     }
 
-    p.log.info(`Selected tasks: ${(selectedTasks as string[]).join(", ")}`);
-    p.outro("Node initialized!");
-  });
+//     if (!gitignoreContent.includes(gitignoreEntry)) {
+//       const newContent = gitignoreContent
+//         ? `${gitignoreContent.trimEnd()}\n${gitignoreEntry}\n`
+//         : `${gitignoreEntry}\n`;
+//       fs.writeFileSync(gitignorePath, newContent);
+//       p.log.success(`Added ${gitignoreEntry} to .gitignore`);
+//     }
 
-initCommand
-  .command("repo")
-  .description("Initialize repo configuration (.autodeploy.config/)")
-  .action(async () => {
-    p.intro("auto-deploy init repo");
+//     p.log.info(`Selected tasks: ${(selectedTasks as string[]).join(", ")}`);
+//     p.outro("Node initialized!");
+//   });
 
-    const templatesDir = getTemplatesDir();
-    const templatePath = path.join(templatesDir, "autodeploy.config");
-    const destPath = ".autodeploy.config";
+// initCommand
+//   .command("repo")
+//   .description("Initialize repo configuration (.autodeploy.config/)")
+//   .action(async () => {
+//     p.intro("auto-deploy init repo");
 
-    if (fs.existsSync(destPath)) {
-      p.log.info(`${destPath}/ already exists, merging files...`);
-    }
+//     const templatesDir = getTemplatesDir();
+//     const templatePath = path.join(templatesDir, "autodeploy.config");
+//     const destPath = ".autodeploy.config";
 
-    // Copy template to destination
-    copyDir(templatePath, destPath, { overwrite: false });
-    p.log.success(`Created ${destPath}/`);
+//     if (fs.existsSync(destPath)) {
+//       p.log.info(`${destPath}/ already exists, merging files...`);
+//     }
 
-    p.outro("Repo initialized!");
-  });
+//     // Copy template to destination
+//     copyDir(templatePath, destPath, { overwrite: false });
+//     p.log.success(`Created ${destPath}/`);
 
-program.addCommand(initCommand);
+//     p.outro("Repo initialized!");
+//   });
 
-// run command
-program
-  .command("run")
-  .description("Run the deployment workflow")
-  .action(runCommand);
+// program.addCommand(initCommand);
 
-program.parse();
+// // run command
+// program
+//   .command("run")
+//   .description("Run the deployment workflow")
+//   .action(runCommand);
+
+// program.parse();
