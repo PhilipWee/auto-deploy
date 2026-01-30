@@ -1,45 +1,69 @@
 import { intro } from "@clack/prompts";
 import z from "zod";
 
-type CliCommandBranch = {
-  type: "branch";
+interface CliCommandBase {
+  label: string;
   command: string;
-  branches: CliCommand;
+}
+
+interface CliCommandBase {
+  command: string;
+  label: string;
+}
+
+type CliCommandBranch = CliCommandBase & {
+  type: "branch";
+  branches: CliCommand[];
   /**The question asked when this branch is ran */
   question: string;
-  /**The label of this branch in the multiselect */
-  label: string;
 };
 
-type CliCommandLeaf = {
+type CliCommandLeaf = CliCommandBase & {
   type: "leaf";
-  command: string;
   args: z.ZodType;
 };
 
-export type CliCommand = CliCommandLeaf | CliCommandBranch
+export type CliCommand = CliCommandLeaf | CliCommandBranch;
 
-export const cliArgs: CliCommand[] = [
-  {
-    command: "init",
-    subCommands: [
-      {
-        command: "node",
-        args: z.void(),
-      },
-      {
-        command: "repo",
-        args: z.void(),
-      },
-    ],
-  },
-  {
-    command: "run",
-    args: z.void(),
-  },
-];
+export const cliArgs: CliCommand = {
+  type: "branch",
+  command: "",
+  question: "What command would you like to run?",
+  label: "root",
+  branches: [
+    {
+      type: "branch",
+      command: "init",
+      question: "What kind of initialization would you like to perform?",
+      label: "init",
+      branches: [
+        {
+          type: "leaf",
+          command: "node",
+          label: "Local Node Init",
+          args: z.void(),
+        },
+        {
+          type: "leaf",
+          command: "repo",
+          label: "Repo Config Init",
+          args: z.void(),
+        },
+      ],
+    },
+    {
+      type: "leaf",
+      command: "run",
+      label: "Run Local Node",
+      args: z.void(),
+    },
+  ],
+};
 
-function promptForContext(possibleCommands: CliCommand) {}
+function promptForContext(
+  curCommand: CliCommand,
+  curContext: { type: string; args: any }
+) {}
 
 export function runCli() {
   intro("self-deploy");
