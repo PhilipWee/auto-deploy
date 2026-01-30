@@ -61,6 +61,13 @@ export function getTemplatesDir(): string {
   const currentFileUrl = import.meta.url;
   const currentFilePath = new URL(currentFileUrl).pathname;
   const distDir = path.dirname(currentFilePath);
-  // Templates are at the package root, dist is one level down
   return path.join(distDir, "templates");
+}
+
+export function getRepoConfigDir(): string {
+  return path.join(process.cwd(), ".autodeploy.config");
+}
+
+export function getNodeConfigDir(): string {
+  return path.join(process.cwd(), ".autodeploy.local");
 }

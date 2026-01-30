@@ -63,7 +63,7 @@ export function getSnapshotPath(
 }
 
 /**
- * Checkout a specific branch in a git repository
+ * Checkout a specific branch or commit in a git repository
  */
 export async function checkoutBranch(
   repoDir: string,
@@ -71,6 +71,49 @@ export async function checkoutBranch(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await execAsync(`git -C "${repoDir}" checkout "${branch}"`);
+    return { success: true };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown error occurred";
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Get the latest commit hash from a remote repository for a specific branch
+ * Uses git ls-remote to fetch without cloning
+ */
+export async function getLatestCommitHash(
+  repoUrl: string,
+  branch: string = "main"
+): Promise<{ success: boolean; commitHash?: string; error?: string }> {
+  try {
+    const { stdout } = await execAsync(
+      `git ls-remote "${repoUrl}" "refs/heads/${branch}"`
+    );
+    const commitHash = stdout.trim().split(/\s+/)[0];
+
+    if (!commitHash) {
+      return { success: false, error: `Branch "${branch}" not found` };
+    }
+
+    return { success: true, commitHash };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown error occurred";
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Checkout a specific commit hash in a git repository
+ */
+export async function checkoutCommit(
+  repoDir: string,
+  commitHash: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await execAsync(`git -C "${repoDir}" checkout "${commitHash}"`);
     return { success: true };
   } catch (error) {
     const message =
