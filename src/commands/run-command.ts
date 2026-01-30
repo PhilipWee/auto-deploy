@@ -1,10 +1,9 @@
 import { CliResult } from "../cli";
+import { rootInitNode } from "./executors/root-init-node";
 import { rootInitRepo } from "./executors/root-init-repo";
 
 const executors: Record<string, (arg: any) => void> = {
-  "root.init.node": () => {
-    console.log("Executing: root.init.node");
-  },
+  "root.init.node": rootInitNode,
   "root.init.repo": rootInitRepo,
   "root.run": () => {
     console.log("Executing: root.run");

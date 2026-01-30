@@ -11,11 +11,6 @@ interface CliCommandBase {
   command: string;
 }
 
-interface CliCommandBase {
-  command: string;
-  label: string;
-}
-
 type CliCommandBranch = CliCommandBase & {
   type: "branch";
   branches: CliCommand[];
