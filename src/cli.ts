@@ -1,5 +1,6 @@
 import { intro, select, isCancel, outro } from "@clack/prompts";
 import z from "zod";
+import { parseZodObj, parseZodType } from "./helpers/zod-parser";
 
 export interface CliResult {
   type: string[];
@@ -45,7 +46,9 @@ export const cliArgs: CliCommand = {
           type: "leaf",
           command: "node",
           label: "Local Node Init",
-          args: z.void(),
+          args: z.object({
+            repoUrl: z.string(),
+          }),
         },
         {
           type: "leaf",
@@ -64,7 +67,61 @@ export const cliArgs: CliCommand = {
   ],
 };
 
-async function promptForContext(
+async function handleBranch(
+  curCommand: CliCommandBranch,
+  curContext: CliResult
+): Promise<CliResult | undefined> {
+  const options = curCommand.branches.map((branch) => ({
+    value: branch.command,
+    label: branch.label,
+  }));
+
+  const choice = await select({
+    message: curCommand.question,
+    options,
+  });
+
+  if (isCancel(choice)) {
+    return undefined;
+  }
+
+  const chosenBranch = curCommand.branches.find(
+    (branch) => branch.command === choice
+  );
+
+  if (!chosenBranch) {
+    throw new Error("Invalid selection");
+  }
+
+  const newType = [...curContext.type, curCommand.command];
+
+  return promptForContextHelper(chosenBranch, {
+    type: newType,
+    args: undefined,
+  });
+}
+
+async function handleLeaf(
+  curCommand: CliCommandLeaf,
+  curContext: CliResult
+): Promise<CliResult | undefined> {
+  const parsedType = parseZodType(curCommand.args);
+
+  if (parsedType.type === "void") {
+    // On a leaf, append final command to the type array and return
+    return {
+      type: [...curContext.type, curCommand.command],
+      args: undefined,
+    };
+  } else if (parsedType.type === "object") {
+
+    
+  } else {
+    throw new Error("Internal Error: Bad leaf schema");
+  }
+}
+
+async function promptForContextHelper(
   curCommand: CliCommand,
   curContext: CliResult = {
     type: [],
@@ -72,40 +129,14 @@ async function promptForContext(
   }
 ): Promise<CliResult | undefined> {
   if (curCommand.type === "leaf") {
-    // On a leaf, append final command to the type array and return
-    return {
-      type: [...curContext.type, curCommand.command],
-      args: undefined,
-    };
+    return handleLeaf(curCommand, curContext);
   } else if (curCommand.type === "branch") {
-    // Use select to show the branches
-    const options = curCommand.branches.map((branch) => ({
-      value: branch.command,
-      label: branch.label,
-    }));
-
-    const choice = await select({
-      message: curCommand.question,
-      options,
-    });
-
-    if (isCancel(choice)) {
-      return undefined;
-    }
-
-    const chosenBranch = curCommand.branches.find(
-      (branch) => branch.command === choice
-    );
-
-    if (!chosenBranch) {
-      throw new Error("Invalid selection");
-    }
-
-    const newType = [...curContext.type, curCommand.command];
-
-    return promptForContext(chosenBranch, { type: newType, args: undefined });
+    return handleBranch(curCommand, curContext);
   }
 }
+
+// The main export for this module remains promptForContext:
+const promptForContext = promptForContextHelper;
 
 export async function runCli(): Promise<CliResult | undefined> {
   intro("self-deploy");
@@ -113,7 +144,7 @@ export async function runCli(): Promise<CliResult | undefined> {
   const res = await promptForContext(cliArgs);
 
   if (!res) {
-    outro('Operation cancelled')
+    outro("Operation cancelled");
   }
 
   return res;
