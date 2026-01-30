@@ -1,5 +1,5 @@
 import { runCli } from "./cli.js";
-import { outro } from "@clack/prompts";
+import { outro, log } from "@clack/prompts";
 import { runCommand } from "./commands/run-command.js";
 
 const main = async () => {
@@ -7,8 +7,14 @@ const main = async () => {
   if (!cliRes) {
     return;
   }
-  const res = await runCommand(cliRes);
-  return res;
+
+  try {
+    const res = await runCommand(cliRes);
+    outro("Success!");
+    return res;
+  } catch (err) {
+    log.error(`Error: ${(err as Error).message}`);
+  }
 };
 
 main();

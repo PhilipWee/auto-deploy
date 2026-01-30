@@ -62,5 +62,5 @@ export function getTemplatesDir(): string {
   const currentFilePath = new URL(currentFileUrl).pathname;
   const distDir = path.dirname(currentFilePath);
   // Templates are at the package root, dist is one level down
-  return path.join(distDir, "..", "templates");
+  return path.join(distDir, "templates");
 }
